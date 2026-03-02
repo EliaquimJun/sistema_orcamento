@@ -16,15 +16,18 @@ export function generateWhatsAppLink(
     currency: 'BRL',
   }).format(valorFinal);
 
-  let mensagem = `Olá ${clienteNome}!\n\n`;
+  let mensagem = `Olá *${clienteNome}*! 👋\n\n`;
   mensagem += `Segue o orçamento *#${numero}* solicitado.\n\n`;
-  mensagem += `*Valor Total:* ${valorFormatado}\n\n`;
+  mensagem += `💰 *Valor Total:* ${valorFormatado}\n\n`;
 
   if (pdfUrl) {
-    mensagem += `Você pode visualizar o orçamento completo em PDF através do link:\n${pdfUrl}\n\n`;
+    mensagem += `📄 *Orçamento Completo em PDF*\n`;
+    mensagem += `Clique no link abaixo para visualizar e baixar:\n`;
+    mensagem += `${pdfUrl}\n\n`;
+    mensagem += `_O link é válido por 7 dias_\n\n`;
   }
 
-  mensagem += `Estamos à disposição para esclarecer qualquer dúvida!\n\n`;
+  mensagem += `Estamos à disposição para esclarecer qualquer dúvida! 😊\n\n`;
   mensagem += `*Gramarmores* - Excelência em Mármores e Granitos`;
 
   const mensagemCodificada = encodeURIComponent(mensagem);

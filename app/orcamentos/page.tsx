@@ -263,11 +263,69 @@ export default function OrcamentosPage() {
 
     try {
       let pdfUrl = '';
+      let pdfPath = orcamento.pdf_path;
 
-      if (orcamento.pdf_path) {
+      if (!pdfPath) {
+        toast({
+          title: 'Gerando PDF...',
+          description: 'Aguarde enquanto o PDF é gerado',
+        });
+
+        const itensFormatados = orcamento.itens_orcamento?.map((item: any) => ({
+          granito_nome: item.granitos?.nome || '',
+          largura: item.largura,
+          altura: item.altura,
+          quantidade: item.quantidade,
+          area: item.area,
+          valor_m2: item.granitos?.valor_m2 || 0,
+          subtotal: item.subtotal,
+        })) || [];
+
+        const pdfData = {
+          numero: orcamento.numero,
+          cliente: {
+            nome: orcamento.cliente_nome,
+            documento: orcamento.cliente_documento,
+            telefone: orcamento.cliente_telefone,
+            email: orcamento.cliente_email,
+            endereco: orcamento.cliente_endereco,
+          },
+          itens: itensFormatados,
+          valor_total: orcamento.valor_total,
+          desconto: orcamento.desconto,
+          valor_final: orcamento.valor_final,
+          created_at: orcamento.created_at,
+          validade: orcamento.validade,
+          prazo_entrega: orcamento.prazo_entrega,
+        };
+
+        const pdfBlob = generateOrcamentoPDF(pdfData);
+        const fileName = `orcamento-${orcamento.numero}-${Date.now()}.pdf`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('orcamentos')
+          .upload(fileName, pdfBlob, {
+            contentType: 'application/pdf',
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { error: updateError } = await supabase
+          .from('orcamentos')
+          .update({ pdf_path: fileName })
+          .eq('id', orcamento.id)
+          .eq('user_id', user?.id);
+
+        if (updateError) throw updateError;
+
+        pdfPath = fileName;
+      }
+
+      if (pdfPath) {
         const { data } = await supabase.storage
           .from('orcamentos')
-          .createSignedUrl(orcamento.pdf_path, 604800);
+          .createSignedUrl(pdfPath, 604800);
 
         if (data?.signedUrl) {
           pdfUrl = data.signedUrl;
