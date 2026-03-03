@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Gem, LayoutDashboard, FileText, Package, LogOut, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { LOGO_GRAMARMORES } from '@/lib/pdf-assets'
 
 const menuItems = [
   {
@@ -53,7 +54,11 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-amber-600 to-amber-800 rounded-lg flex items-center justify-center">
-                <Gem className="w-6 h-6 text-white" />
+                <img
+                  src={LOGO_GRAMARMORES}
+                  alt="Gramarmores"
+                  className="w-8 h-8 object-contain"
+                />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-white">Gramarmores</h1>

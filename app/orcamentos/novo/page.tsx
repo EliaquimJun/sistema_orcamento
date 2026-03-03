@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Eye } from 'lucide-react';
@@ -31,19 +31,18 @@ interface ItemOrcamento {
   granito_id: string;
   granito_nome?: string;
   valor_m2?: number;
-  largura: number;
-  altura: number;
-  largura_input?: string;
-  altura_input?: string;
+  m2: number;
+  m2_input?: string;
   quantidade: number;
-  area: number;
   subtotal: number;
 }
 
 export default function NovoOrcamentoPage() {
+  const supabase = createClient();
   const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+
   const [granitos, setGranitos] = useState<Granito[]>([]);
   const [loading, setLoading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -58,16 +57,16 @@ export default function NovoOrcamentoPage() {
 
   const [validade, setValidade] = useState('30 dias');
   const [prazoEntrega, setPrazoEntrega] = useState('A combinar');
+  const [condicoesPagamento, setCondicoesPagamento] = useState(
+    'Entrada de 50% no ato da aprovação\n50% restante na entrega'
+  );
 
   const [itens, setItens] = useState<ItemOrcamento[]>([
     {
       granito_id: '',
-      largura: 0,
-      altura: 0,
-      largura_input: '',
-      altura_input: '',
+      m2: 0,
+      m2_input: '',
       quantidade: 1,
-      area: 0,
       subtotal: 0,
     },
   ]);
@@ -75,28 +74,17 @@ export default function NovoOrcamentoPage() {
   const [desconto, setDesconto] = useState(0);
 
   useEffect(() => {
-    if (user) {
-      loadGranitos();
-    }
+    if (user) loadGranitos();
   }, [user]);
 
   const loadGranitos = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('granitos')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('nome');
+    const { data } = await supabase
+      .from('granitos')
+      .select('*')
+      .eq('user_id', user?.id)
+      .order('nome');
 
-      if (error) throw error;
-      setGranitos(data || []);
-    } catch (error: any) {
-      toast({
-        title: 'Erro ao carregar granitos',
-        description: error.message,
-        variant: 'destructive',
-      });
-    }
+    setGranitos(data || []);
   };
 
   const calcularItem = (index: number, field: string, value: any) => {
@@ -110,20 +98,20 @@ export default function NovoOrcamentoPage() {
         item.granito_nome = granito.nome;
         item.valor_m2 = granito.valor_m2;
       }
-    } else if (field === 'largura') {
-      item.largura_input = value;
+    }
+
+    if (field === 'm2') {
+      item.m2_input = value;
       const numero = parseFloat(value.replace(',', '.'));
-      item.largura = isNaN(numero) ? 0 : numero;
-    } else if (field === 'altura') {
-      item.altura_input = value;
-      const numero = parseFloat(value.replace(',', '.'));
-      item.altura = isNaN(numero) ? 0 : numero;
-    } else if (field === 'quantidade') {
+      item.m2 = isNaN(numero) ? 0 : numero;
+    }
+
+    if (field === 'quantidade') {
       item.quantidade = parseInt(value) || 1;
     }
 
-    item.area = item.largura * item.altura;
-    item.subtotal = item.area * (item.valor_m2 || 0) * item.quantidade;
+    item.subtotal =
+      item.m2 * (item.valor_m2 || 0) * item.quantidade;
 
     novosItens[index] = item;
     setItens(novosItens);
@@ -134,12 +122,9 @@ export default function NovoOrcamentoPage() {
       ...itens,
       {
         granito_id: '',
-        largura: 0,
-        altura: 0,
-        largura_input: '',
-        altura_input: '',
+        m2: 0,
+        m2_input: '',
         quantidade: 1,
-        area: 0,
         subtotal: 0,
       },
     ]);
@@ -151,30 +136,19 @@ export default function NovoOrcamentoPage() {
     }
   };
 
-  const calcularTotal = () => {
-    return itens.reduce((sum, item) => sum + item.subtotal, 0);
-  };
+  const calcularTotal = () =>
+    itens.reduce((sum, item) => sum + item.subtotal, 0);
 
-  const calcularValorFinal = () => {
-    return calcularTotal() - desconto;
-  };
+  const calcularValorFinal = () =>
+    calcularTotal() - desconto;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!clienteData.nome.trim()) {
       toast({
-        title: 'Erro de validação',
+        title: 'Erro',
         description: 'Nome do cliente é obrigatório',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (itens.some((item) => !item.granito_id || item.largura <= 0 || item.altura <= 0)) {
-      toast({
-        title: 'Erro de validação',
-        description: 'Todos os itens devem ter granito e medidas válidas',
         variant: 'destructive',
       });
       return;
@@ -183,16 +157,14 @@ export default function NovoOrcamentoPage() {
     setLoading(true);
 
     try {
-      const { data: numeroData, error: numeroError } = await supabase.rpc(
+      const { data: numeroData } = await supabase.rpc(
         'get_next_orcamento_numero',
         { p_user_id: user?.id }
       );
 
-      if (numeroError) throw numeroError;
-
       const numero = numeroData;
 
-      const { data: orcamento, error: orcamentoError } = await supabase
+      const { data: orcamento } = await supabase
         .from('orcamentos')
         .insert({
           user_id: user?.id,
@@ -205,30 +177,25 @@ export default function NovoOrcamentoPage() {
           valor_total: calcularTotal(),
           desconto,
           valor_final: calcularValorFinal(),
-          status: 'Pendente',
           validade,
           prazo_entrega: prazoEntrega,
+          condicoes_pagamento: condicoesPagamento,
+          status: 'Pendente',
         })
         .select()
         .single();
 
-      if (orcamentoError) throw orcamentoError;
-
       const itensParaInserir = itens.map((item) => ({
         orcamento_id: orcamento.id,
         granito_id: item.granito_id,
-        largura: item.largura,
-        altura: item.altura,
+        area: item.m2,
         quantidade: item.quantidade,
-        area: item.area,
         subtotal: item.subtotal,
       }));
 
-      const { error: itensError } = await supabase
+      await supabase
         .from('itens_orcamento')
         .insert(itensParaInserir);
-
-      if (itensError) throw itensError;
 
       toast({
         title: 'Orçamento criado com sucesso!',
@@ -238,7 +205,7 @@ export default function NovoOrcamentoPage() {
       router.push('/orcamentos');
     } catch (error: any) {
       toast({
-        title: 'Erro ao criar orçamento',
+        title: 'Erro',
         description: error.message,
         variant: 'destructive',
       });
@@ -247,26 +214,30 @@ export default function NovoOrcamentoPage() {
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
     }).format(value);
-  };
 
   const previewData = {
     numero: 0,
     cliente: clienteData,
     itens: itens.map((item) => ({
-      ...item,
-      granito_nome: granitos.find((g) => g.id === item.granito_id)?.nome || '',
-      valor_m2: granitos.find((g) => g.id === item.granito_id)?.valor_m2 || 0,
+      granito_nome:
+        granitos.find((g) => g.id === item.granito_id)?.nome || '',
+      m2: item.m2,
+      quantidade: item.quantidade,
+      valor_m2:
+        granitos.find((g) => g.id === item.granito_id)?.valor_m2 || 0,
+      subtotal: item.subtotal,
     })),
     valor_total: calcularTotal(),
     desconto,
     valor_final: calcularValorFinal(),
     validade,
     prazo_entrega: prazoEntrega,
+    condicoes_pagamento: condicoesPagamento,
   };
 
   return (
@@ -382,25 +353,14 @@ export default function NovoOrcamentoPage() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-zinc-200">Largura (m) *</Label>
+                      <Label className="text-zinc-200">M² *</Label>
                       <Input
                         type="text"
                         inputMode="decimal"
-                        value={item.largura_input || ''}
-                        onChange={(e) => calcularItem(index, 'largura', e.target.value)}
+                        value={item.m2_input || ''}
+                        onChange={(e) => calcularItem(index, 'm2', e.target.value)}
                         className="bg-zinc-800 border-zinc-700 text-white"
-                        placeholder="Ex: 0.5 ou 0,5"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-zinc-200">Altura (m) *</Label>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        value={item.altura_input || ''}
-                        onChange={(e) => calcularItem(index, 'altura', e.target.value)}
-                        className="bg-zinc-800 border-zinc-700 text-white"
-                        placeholder="Ex: 1.2 ou 1,2"
+                        placeholder="Ex: 2.5 ou 2,5"
                       />
                     </div>
                     <div className="space-y-2">
@@ -427,31 +387,48 @@ export default function NovoOrcamentoPage() {
             </div>
           </Card>
 
-          <Card className="bg-zinc-900/50 border-zinc-800 p-4 md:p-6">
-            <h2 className="text-lg md:text-xl font-semibold text-white mb-4">Condições</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div className="space-y-2">
-                <Label htmlFor="validade" className="text-zinc-200">Validade do Orçamento</Label>
-                <Input
-                  id="validade"
-                  value={validade}
-                  onChange={(e) => setValidade(e.target.value)}
-                  className="bg-zinc-800 border-zinc-700 text-white"
-                  placeholder="Ex: 30 dias, 15 dias"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="prazo_entrega" className="text-zinc-200">Prazo de Entrega</Label>
-                <Input
-                  id="prazo_entrega"
-                  value={prazoEntrega}
-                  onChange={(e) => setPrazoEntrega(e.target.value)}
-                  className="bg-zinc-800 border-zinc-700 text-white"
-                  placeholder="Ex: 5 dias úteis, A combinar"
-                />
-              </div>
+          <Card className="bg-zinc-900/50 border-zinc-800 p-6">
+          <h2 className="text-xl font-semibold text-white mb-4">
+            Condições
+          </h2>
+
+          <div className="space-y-4">
+            <div>
+              <Label className="text-zinc-200">
+                Validade do Orçamento
+              </Label>
+              <Input
+                value={validade}
+                onChange={(e) => setValidade(e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-white"
+              />
             </div>
-          </Card>
+
+            <div>
+              <Label className="text-zinc-200">
+                Prazo de Entrega
+              </Label>
+              <Input
+                value={prazoEntrega}
+                onChange={(e) => setPrazoEntrega(e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-white"
+              />
+            </div>
+
+            <div>
+              <Label className="text-zinc-200">
+                Condições de Pagamento
+              </Label>
+              <textarea
+                value={condicoesPagamento}
+                onChange={(e) =>
+                  setCondicoesPagamento(e.target.value)
+                }
+                className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-md p-3 min-h-[100px]"
+              />
+            </div>
+          </div>
+        </Card>
 
           <Card className="bg-zinc-900/50 border-zinc-800 p-4 md:p-6">
             <h2 className="text-lg md:text-xl font-semibold text-white mb-4">Resumo Financeiro</h2>

@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, FileText, Download, MessageCircle, Trash2, Eye, Mail } from 'lucide-react';
@@ -53,6 +53,7 @@ interface Orcamento {
 }
 
 export default function OrcamentosPage() {
+  const supabase = createClient();
   const { user } = useAuth();
   const { toast } = useToast();
   const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
@@ -222,15 +223,66 @@ export default function OrcamentosPage() {
   };
 
   const handleDownloadPDF = async (orcamento: Orcamento) => {
-    if (!orcamento.pdf_path) {
-      await handleGeneratePDF(orcamento);
-      return;
-    }
-
     try {
+      let pdfPath = orcamento.pdf_path;
+
+      // Se não existir PDF ainda, gerar primeiro
+      if (!pdfPath) {
+        const itensFormatados = orcamento.itens_orcamento?.map((item: any) => ({
+          granito_nome: item.granitos?.nome || '',
+          largura: item.largura,
+          altura: item.altura,
+          quantidade: item.quantidade,
+          area: item.area,
+          valor_m2: item.granitos?.valor_m2 || 0,
+          subtotal: item.subtotal,
+        })) || [];
+
+        const pdfData = {
+          numero: orcamento.numero,
+          cliente: {
+            nome: orcamento.cliente_nome,
+            documento: orcamento.cliente_documento,
+            telefone: orcamento.cliente_telefone,
+            email: orcamento.cliente_email,
+            endereco: orcamento.cliente_endereco,
+          },
+          itens: itensFormatados,
+          valor_total: orcamento.valor_total,
+          desconto: orcamento.desconto,
+          valor_final: orcamento.valor_final,
+          created_at: orcamento.created_at,
+          validade: orcamento.validade,
+          prazo_entrega: orcamento.prazo_entrega,
+        };
+
+        const pdfBlob = generateOrcamentoPDF(pdfData);
+        const fileName = `orcamento-${orcamento.numero}-${Date.now()}.pdf`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('orcamentos')
+          .upload(fileName, pdfBlob, {
+            contentType: 'application/pdf',
+            upsert: true,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { error: updateError } = await supabase
+          .from('orcamentos')
+          .update({ pdf_path: fileName })
+          .eq('id', orcamento.id)
+          .eq('user_id', user?.id);
+
+        if (updateError) throw updateError;
+
+        pdfPath = fileName;
+      }
+
+      // Agora baixar
       const { data, error } = await supabase.storage
         .from('orcamentos')
-        .download(orcamento.pdf_path);
+        .download(pdfPath);
 
       if (error) throw error;
 
@@ -242,6 +294,7 @@ export default function OrcamentosPage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+
     } catch (error: any) {
       toast({
         title: 'Erro ao baixar PDF',

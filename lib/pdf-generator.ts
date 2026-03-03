@@ -1,125 +1,139 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import { LOGO_GRAMARMORES } from '@/lib/pdf-assets'
 
-interface OrcamentoData {
-  numero: number;
-  cliente: {
-    nome: string;
-    documento: string;
-    telefone: string;
-    email: string;
-    endereco: string;
-  };
-  itens: Array<{
-    granito_nome: string;
-    largura: number;
-    altura: number;
-    quantidade: number;
-    area: number;
-    valor_m2: number;
-    subtotal: number;
-  }>;
-  valor_total: number;
-  desconto: number;
-  valor_final: number;
-  created_at?: string;
-  validade?: string;
-  prazo_entrega?: string;
-}
+export function generateOrcamentoPDF(data: any): Blob {
+  const doc = new jsPDF()
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
 
-export function generateOrcamentoPDF(data: OrcamentoData): Blob {
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
-    }).format(value);
-  };
+    }).format(value)
 
-  doc.setFillColor(217, 119, 6);
-  doc.rect(0, 0, pageWidth, 35, 'F');
+  /* =========================
+     HEADER
+  ========================= */
 
-  doc.setFontSize(24);
-  doc.setTextColor(255, 255, 255);
-  doc.text('GRAMARMORES', 20, 18);
+  doc.setFillColor(122, 18, 18)
+  doc.rect(0, 0, pageWidth, 45, 'F')
 
-  doc.setFontSize(10);
-  doc.text('Marmoraria e Granitos', 20, 25);
+  doc.addImage(LOGO_GRAMARMORES, 'JPEG', 15, 10, 28, 20)
 
-  doc.setFontSize(16);
-  doc.text(`Orçamento ${data.cliente.nome}`, pageWidth - 20, 18, { align: 'right' });
+  doc.setTextColor(255, 255, 255)
 
-  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(18)
+  doc.text('GRAMARMORES', 50, 18)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.text('Marmoraria e Granitos', 50, 24)
+
+  doc.setFontSize(8)
+  doc.text('CNPJ:40.905.989/0001-05', 50, 29)
+  doc.text('R. Trinta e Cinco, 41 - Jardim Olímpico', 50, 33)
+  doc.text('Montes Claros - MG | (38) 98823-6569', 50, 37)
+  doc.text('marmorariagramarmores@hotmail.com', 50, 41)
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(14)
+  doc.text(`Orçamento Gramarmores`, pageWidth - 15, 20, { align: 'right' })
+
   const dataFormatada = format(
     data.created_at ? new Date(data.created_at) : new Date(),
     "dd 'de' MMMM 'de' yyyy",
     { locale: ptBR }
-  );
-  doc.text(dataFormatada, pageWidth - 20, 25, { align: 'right' });
+  )
 
-  doc.setTextColor(100, 100, 100);
-  doc.setFontSize(8);
-  doc.text('R. Trinta e Cinco, 41 - Jardim Olímpico, Montes Claros - MG, 39406-538', 20, 30);
-  doc.text('(38) 3216-6569 | contato@gramarmores.com.br', 20, 33);
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.text(dataFormatada, pageWidth - 15, 28, { align: 'right' })
 
-  let yPos = 45;
+  /* =========================
+     DADOS DO CLIENTE (BOX PROFISSIONAL)
+  ========================= */
 
-  doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
-  doc.setFont('helvetica', 'bold');
-  doc.text('DADOS DO CLIENTE', 20, yPos);
+  let yPos = 60
 
-  yPos += 7;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text(`Nome: ${data.cliente.nome}`, 20, yPos);
-  yPos += 5;
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0, 0, 0)
+  doc.text('DADOS DO CLIENTE', 15, yPos)
 
-  if (data.cliente.documento) {
-    doc.text(`CPF/CNPJ: ${data.cliente.documento}`, 20, yPos);
-    yPos += 5;
-  }
+  yPos += 6
 
-  if (data.cliente.telefone) {
-    doc.text(`Telefone: ${data.cliente.telefone}`, 20, yPos);
-    yPos += 5;
-  }
+  // Fundo leve
+  doc.setFillColor(245, 245, 245)
+  doc.rect(15, yPos, pageWidth - 30, 26, 'F')
 
-  if (data.cliente.email) {
-    doc.text(`Email: ${data.cliente.email}`, 20, yPos);
-    yPos += 5;
-  }
+  doc.setFontSize(9)
 
-  if (data.cliente.endereco) {
-    doc.text(`Endereço: ${data.cliente.endereco}`, 20, yPos);
-    yPos += 5;
-  }
+  const leftX = 20
+  const rightX = pageWidth / 2 + 5
+  let lineY = yPos + 8
 
-  yPos += 5;
-  doc.setFont('helvetica', 'bold');
-  doc.text('ITENS DO ORÇAMENTO', 20, yPos);
-  yPos += 5;
+  // ===== COLUNA ESQUERDA =====
+  doc.setFont('helvetica', 'bold')
+  doc.text('Nome: ', leftX, lineY)
+  doc.setFont('helvetica', 'normal')
+  const nomeLines = doc.splitTextToSize(data.cliente.nome || '-', 60)
+  doc.text(nomeLines, leftX + 14, lineY)
 
-  const tableData = data.itens.map((item) => [
-    item.granito_nome,
-    `${item.largura.toFixed(2)} x ${item.altura.toFixed(2)}`,
-    item.area.toFixed(2),
-    item.quantidade.toString(),
-    formatCurrency(item.valor_m2),
-    formatCurrency(item.subtotal),
-  ]);
+  lineY += 6
+  doc.setFont('helvetica', 'bold')
+  doc.text('CPF/CNPJ: ', leftX, lineY)
+  doc.setFont('helvetica', 'normal')
+  doc.text(data.cliente.documento || '-', leftX + 22, lineY)
+
+  lineY += 6
+  doc.setFont('helvetica', 'bold')
+  doc.text('Telefone: ', leftX, lineY)
+  doc.setFont('helvetica', 'normal')
+  doc.text(data.cliente.telefone || '-', leftX + 20, lineY)
+
+
+  // ===== COLUNA DIREITA =====
+  lineY = yPos + 8
+
+  doc.setFont('helvetica', 'bold')
+  doc.text('Email: ', rightX, lineY)
+  doc.setFont('helvetica', 'normal')
+  doc.text(data.cliente.email || '-', rightX + 14, lineY)
+
+  lineY += 6
+  doc.setFont('helvetica', 'bold')
+  doc.text('Endereço: ', rightX, lineY)
+  doc.setFont('helvetica', 'normal')
+  const enderecoLines = doc.splitTextToSize(data.cliente.endereco || '-', 60)
+  doc.text(enderecoLines, rightX + 22, lineY)
+
+  yPos += 36
+
+
+  /* =========================
+     TABELA
+  ========================= */
+
+  const tableData = data.itens.map((item: any) => [
+  item.granito_nome,
+ (item.m2 ?? item.area ?? 0).toFixed(2),
+  item.quantidade.toString(),
+  formatCurrency(item.valor_m2),
+  formatCurrency(item.subtotal),
+])
 
   autoTable(doc, {
     startY: yPos,
-    head: [['Produto', 'Medidas (m)', 'Área (m²)', 'Qtd', 'Valor/m²', 'Subtotal']],
+    head: [['Produto', 'M²', 'Qtd', 'Valor/m²', 'Subtotal']],
     body: tableData,
     theme: 'striped',
     headStyles: {
-      fillColor: [41, 37, 36],
+      fillColor: [40, 40, 40],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       fontSize: 8,
@@ -128,76 +142,87 @@ export function generateOrcamentoPDF(data: OrcamentoData): Blob {
       fontSize: 8,
       textColor: [0, 0, 0],
     },
-    columnStyles: {
-      0: { cellWidth: 50 },
-      1: { halign: 'center', cellWidth: 30 },
-      2: { halign: 'center', cellWidth: 20 },
-      3: { halign: 'center', cellWidth: 15 },
-      4: { halign: 'right', cellWidth: 30 },
-      5: { halign: 'right', cellWidth: 35 },
-    },
-  });
+  })
 
-  const finalY = (doc as any).lastAutoTable.finalY + 10;
+  const finalY = (doc as any).lastAutoTable.finalY + 10
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text(`Subtotal: ${formatCurrency(data.valor_total)}`, pageWidth - 20, finalY, {
-    align: 'right',
-  });
+  /* =========================
+     VALORES
+  ========================= */
+
+  doc.setFontSize(10)
+  doc.setTextColor(0, 0, 0)
+
+  doc.text(
+    `Subtotal: ${formatCurrency(data.valor_total)}`,
+    pageWidth - 15,
+    finalY,
+    { align: 'right' }
+  )
 
   if (data.desconto > 0) {
-    doc.setTextColor(220, 38, 38);
-    doc.text(`Desconto: -${formatCurrency(data.desconto)}`, pageWidth - 20, finalY + 5, {
-      align: 'right',
-    });
+    doc.setTextColor(200, 0, 0)
+    doc.text(
+      `Desconto: -${formatCurrency(data.desconto)}`,
+      pageWidth - 15,
+      finalY + 6,
+      { align: 'right' }
+    )
   }
 
-  doc.setDrawColor(217, 119, 6);
-  doc.setLineWidth(0.5);
-  doc.line(pageWidth - 60, finalY + (data.desconto > 0 ? 8 : 3), pageWidth - 20, finalY + (data.desconto > 0 ? 8 : 3));
+  doc.setDrawColor(180, 180, 180)
+  doc.line(pageWidth - 60, finalY + 10, pageWidth - 15, finalY + 10)
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.setTextColor(217, 119, 6);
-  doc.text(`TOTAL: ${formatCurrency(data.valor_final)}`, pageWidth - 20, finalY + (data.desconto > 0 ? 15 : 10), {
-    align: 'right',
-  });
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(14)
+  doc.setTextColor(0, 0, 0)
 
-  const footerY = finalY + 30;
-  doc.setFontSize(8);
-  doc.setTextColor(100, 100, 100);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Condições de Pagamento:', 20, footerY);
-  doc.text('• Entrada de 50% no ato da aprovação', 20, footerY + 4);
-  doc.text('• 50% restante na entrega do produto', 20, footerY + 8);
-
-  doc.text('Observações:', 110, footerY);
-  doc.text(`• Validade: ${data.validade || '30 dias'}`, 110, footerY + 4);
-  doc.text(`• Prazo de entrega: ${data.prazo_entrega || 'A combinar'}`, 110, footerY + 8);
-
-  doc.setDrawColor(200, 200, 200);
-  doc.line(20, doc.internal.pageSize.getHeight() - 30, 90, doc.internal.pageSize.getHeight() - 30);
-  doc.setFontSize(7);
-  doc.text('Assinatura do Cliente', 20, doc.internal.pageSize.getHeight() - 25);
-
-  doc.setFontSize(8);
-  doc.setTextColor(100, 100, 100);
   doc.text(
-    'Nos colocamos a disposição para qualquer esclarecimento que se faz necessário.',
-    pageWidth / 2,
-    doc.internal.pageSize.getHeight() - 18,
-    { align: 'center' }
-  );
+    `TOTAL: ${formatCurrency(data.valor_final)}`,
+    pageWidth - 15,
+    finalY + 18,
+    { align: 'right' }
+  )
 
-  doc.setFontSize(7);
-  doc.setTextColor(150, 150, 150);
+  /* =========================
+     CONDIÇÕES + OBSERVAÇÕES MAIS EMBAIXO
+  ========================= */
+
+  const footerBase = pageHeight - 60
+
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0, 0, 0)
+
+  doc.text('Condições de Pagamento', 15, footerBase)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.text('• Entrada de 50% no ato da aprovação', 15, footerBase + 6)
+  doc.text('• 50% restante na entrega', 15, footerBase + 11)
+
+  doc.setFont('helvetica', 'bold')
+  doc.text('Observações', pageWidth / 2, footerBase)
+
+  doc.setFont('helvetica', 'normal')
+  doc.text(`• Validade: ${data.validade || '30 dias'}`, pageWidth / 2, footerBase + 6)
   doc.text(
-    'Este documento é um orçamento e não representa uma nota fiscal.',
+    `• Prazo de entrega: ${data.prazo_entrega || 'A combinar'}`,
     pageWidth / 2,
-    doc.internal.pageSize.getHeight() - 10,
-    { align: 'center' }
-  );
+    footerBase + 11
+  )
 
-  return doc.output('blob');
+  doc.line(15, pageHeight - 25, 90, pageHeight - 25)
+
+  doc.setFontSize(7)
+  doc.text('Assinatura do Cliente', 15, pageHeight - 20)
+
+  doc.setFontSize(7)
+  doc.text(
+    'Este documento é um orçamento e não representa nota fiscal.',
+    pageWidth / 2,
+    pageHeight - 10,
+    { align: 'center' }
+  )
+
+  return doc.output('blob')
 }

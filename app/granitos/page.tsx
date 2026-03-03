@@ -25,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit, Trash2, Package } from 'lucide-react';
@@ -40,6 +40,7 @@ interface Granito {
 }
 
 export default function GranitosPage() {
+  const supabase = createClient();
   const { user } = useAuth();
   const { toast } = useToast();
   const [granitos, setGranitos] = useState<Granito[]>([]);

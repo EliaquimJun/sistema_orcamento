@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Gem } from 'lucide-react';
+import { LOGO_GRAMARMORES } from '@/lib/pdf-assets'
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -44,8 +45,12 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800 rounded-2xl shadow-2xl p-8">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-amber-600 to-amber-800 rounded-xl mb-4">
-              <Gem className="w-8 h-8 text-white" />
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-xl mb-4 shadow-lg">
+              <img
+                src={LOGO_GRAMARMORES}
+                alt="Gramarmores"
+                className="w-10 h-10 object-contain"
+              />
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">Gramarmores</h1>
             <p className="text-zinc-400">Sistema de Orçamentos</p>
@@ -91,14 +96,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-zinc-400 text-sm">
-              Não tem uma conta?{' '}
-              <Link href="/registro" className="text-amber-600 hover:text-amber-500 font-medium">
-                Criar Conta
-              </Link>
-            </p>
-          </div>
+         
         </div>
       </div>
     </div>
